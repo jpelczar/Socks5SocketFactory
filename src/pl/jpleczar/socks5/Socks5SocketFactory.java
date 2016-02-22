@@ -1,3 +1,5 @@
+package pl.jpleczar.socks5;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -47,20 +49,20 @@ public class Socks5SocketFactory {
         Socket socket = new Socket();
         socket.connect(new InetSocketAddress(proxyIp, proxyPort));
 
-        DataInputStream in = new DataInputStream(socket.getInputStream());
-        DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+        DataInputStream write = new DataInputStream(socket.getInputStream());
+        DataOutputStream read = new DataOutputStream(socket.getOutputStream());
 
         byte[] hello = new byte[3];
         hello[0] = (byte) 0x05; //SOCKS version number (SOCKS v5)
         hello[1] = (byte) 0x01; //number of authentication methods supported
         hello[2] = (byte) 0x02; //authentication methods supported - only one (with authentication)
 
-        out.write(hello);
-        out.flush();
+        read.write(hello);
+        read.flush();
 
-        byte[] response = new byte[2];
-        in.readFully(response);
-        if (response[0] != (byte) 0x05 || response[1] != (byte) 0x02) { //Server response: first byte - SOCKS version number, second byte - chosen authentication method, 1 byte, or 0xFF if no acceptable methods were offered
+        byte[] helloResponse = new byte[2];
+        write.readFully(helloResponse);
+        if (helloResponse[0] != (byte) 0x05 || helloResponse[1] != (byte) 0x02) { //Server response: first byte - SOCKS version number, second byte - chosen authentication method, 1 byte, or 0xFF if no acceptable methods were offered
             throw new SocksNotSupportedByServerException();
         }
 
@@ -85,12 +87,12 @@ public class Socks5SocketFactory {
             authRequest[i] = bytes.get(i);
         }
 
-        out.write(authRequest);
-        out.flush();
+        read.write(authRequest);
+        read.flush();
 
-        response = new byte[2];
-        in.readFully(response);
-        if (response[1] != (byte) 0x00) { //Server response: first byte - version number (omitted), second byte - status code (0x00 - success)
+        byte[] authResponse = new byte[2];
+        write.readFully(authResponse);
+        if (authResponse[1] != (byte) 0x00) { //Server response: first byte - version number (omitted), second byte - status code (0x00 - success)
             throw new AuthorizationFailedException();
         }
 
@@ -108,38 +110,44 @@ public class Socks5SocketFactory {
         connectionRequest[8] = destPortBytes[0];
         connectionRequest[9] = destPortBytes[1];
 
-        out.write(connectionRequest);
-        out.flush();
+        read.write(connectionRequest);
+        read.flush();
 
-        response = new byte[10];
-        in.readFully(response);
+        byte[] connectionResponse = new byte[10];
+        write.readFully(connectionResponse);
 
-        if (response[1] != (byte) 0x00) {
+        if (connectionResponse[1] != (byte) 0x00) {
             throw new RequestFailedException();
         }
 
         return socket;
     }
 
-    public class IncorrectIpAddressException extends Exception {
+    public class Socks5Exception extends Exception {
+        public Socks5Exception(String message) {
+            super(message);
+        }
+    }
+
+    private class IncorrectIpAddressException extends Socks5Exception {
         public IncorrectIpAddressException() {
             super("Proper IP address syntax - x.x.x.x");
         }
     }
 
-    public class SocksNotSupportedByServerException extends Exception {
+    private class SocksNotSupportedByServerException extends Socks5Exception {
         public SocksNotSupportedByServerException() {
             super("SOCKS v5 is not supported by proxy server");
         }
     }
 
-    public class AuthorizationFailedException extends Exception {
+    private class AuthorizationFailedException extends Socks5Exception {
         public AuthorizationFailedException() {
             super("Proxy server authorization failed");
         }
     }
 
-    public class RequestFailedException extends Exception {
+    private class RequestFailedException extends Socks5Exception {
         public RequestFailedException() {
             super("Proxy server request failed");
         }
