@@ -49,19 +49,19 @@ public class Socks5SocketFactory {
         Socket socket = new Socket();
         socket.connect(new InetSocketAddress(proxyIp, proxyPort));
 
-        DataInputStream write = new DataInputStream(socket.getInputStream());
-        DataOutputStream read = new DataOutputStream(socket.getOutputStream());
+        DataInputStream read = new DataInputStream(socket.getInputStream());
+        DataOutputStream write = new DataOutputStream(socket.getOutputStream());
 
         byte[] hello = new byte[3];
         hello[0] = (byte) 0x05; //SOCKS version number (SOCKS v5)
         hello[1] = (byte) 0x01; //number of authentication methods supported
         hello[2] = (byte) 0x02; //authentication methods supported - only one (with authentication)
 
-        read.write(hello);
-        read.flush();
+        write.write(hello);
+        write.flush();
 
         byte[] helloResponse = new byte[2];
-        write.readFully(helloResponse);
+        read.readFully(helloResponse);
         if (helloResponse[0] != (byte) 0x05 || helloResponse[1] != (byte) 0x02) { //Server response: first byte - SOCKS version number, second byte - chosen authentication method, 1 byte, or 0xFF if no acceptable methods were offered
             throw new SocksNotSupportedByServerException();
         }
@@ -87,11 +87,11 @@ public class Socks5SocketFactory {
             authRequest[i] = bytes.get(i);
         }
 
-        read.write(authRequest);
-        read.flush();
+        write.write(authRequest);
+        write.flush();
 
         byte[] authResponse = new byte[2];
-        write.readFully(authResponse);
+        read.readFully(authResponse);
         if (authResponse[1] != (byte) 0x00) { //Server response: first byte - version number (omitted), second byte - status code (0x00 - success)
             throw new AuthorizationFailedException();
         }
@@ -110,11 +110,11 @@ public class Socks5SocketFactory {
         connectionRequest[8] = destPortBytes[0];
         connectionRequest[9] = destPortBytes[1];
 
-        read.write(connectionRequest);
-        read.flush();
+        write.write(connectionRequest);
+        write.flush();
 
         byte[] connectionResponse = new byte[10];
-        write.readFully(connectionResponse);
+        read.readFully(connectionResponse);
 
         if (connectionResponse[1] != (byte) 0x00) {
             throw new RequestFailedException();
